@@ -34,3 +34,5 @@ It's similar to building SourceMod itself, so you can setup the build environmen
 You could now put the `source` folder (feel free to rename it) into `alliedmodders\sourcemod\public`. Inside source folder create `build` folder.
 Open a terminal inside the `build` folder and run `python ../configure.py --enable-optimize --sdks comma_separated_list_of_sdks_you_wish_to_compile_for`.
 Next run `ambuild` to build binaries, built binaries should be in `build\package` folder.
+
+Alternatively you could fork this repository and rely on `.github/workflows` to compile it for you.
