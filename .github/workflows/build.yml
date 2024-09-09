@@ -1,0 +1,172 @@
+# modified from: https://github.com/accelerator74/Tickrate-Enabler/blob/master/.github/workflows/l4d2-build.yml
+
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - '*'
+    paths-ignore:
+      - LICENSE
+      - README.md
+  pull_request:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - LICENSE
+      - README.md
+  schedule:
+    - cron: '30 03 01 */3 *' # Artifacts expire every 3 months
+
+jobs:
+  build:
+    name: build on ${{ matrix.os_short }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+        sm_version:
+          - "master"
+
+        mm_version:
+          - "master"
+
+        include:
+          - mm_version: "master"
+            mm_branch: "master"
+
+          - sm_version: "master"
+            sm_branch: "master"
+
+          - os: ubuntu-latest
+            os_short: linux
+
+          - os: windows-latest
+            os_short: win
+
+    steps:
+      - name: Prepare env
+        shell: bash
+        run: |
+          echo "GITHUB_SHA_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Install (Linux)
+        if: startsWith(runner.os, 'Linux')
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y clang g++-multilib
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Add msbuild to PATH (Windows)
+        if: startsWith(runner.os, 'Windows')
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install (Windows)
+        if: startsWith(runner.os, 'Windows')
+        shell: cmd
+        run: |
+          :: See https://github.com/microsoft/vswhere/wiki/Find-VC
+          for /f "usebackq delims=*" %%i in (`vswhere -latest -property installationPath`) do (
+            call "%%i"\Common7\Tools\vsdevcmd.bat -arch=x86 -host_arch=x64
+          )
+          :: Loop over all environment variables and make them global.
+          for /f "delims== tokens=1,2" %%a in ('set') do (
+            echo>>"%GITHUB_ENV%" %%a=%%b
+          )
+
+      - name: Checking out SourceMod
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/sourcemod
+          submodules: recursive
+          ref: ${{ matrix.sm_branch }}
+          path: sourcemod-${{ matrix.sm_version }}
+
+      - name: Checking out MM:Source
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/metamod-source
+          ref: ${{ matrix.mm_branch }}
+          path: metamod-${{ matrix.mm_version }}
+
+      - name: Setting up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setting up ambuild
+        run: |
+          python -m pip install wheel
+          pip install git+https://github.com/alliedmodders/ambuild
+
+      - name: Checking out hl2sdk-l4d2
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: l4d2
+          path: hl2sdk-l4d2
+
+      - name: Checking out hl2sdk-l4d
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: l4d
+          path: hl2sdk-l4d
+
+      - name: Checking out hl2sdk-css
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: css
+          path: hl2sdk-css
+
+      - name: Checking out hl2sdk-csgo
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: csgo
+          path: hl2sdk-csgo
+
+      - name: Checking out hl2sdk-tf2
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: tf2
+          path: hl2sdk-tf2
+
+      - name: Checking out hl2sdk-gmod
+        uses: actions/checkout@v4
+        with:
+          repository: alliedmodders/hl2sdk
+          ref: gmod
+          path: hl2sdk-gmod
+
+      - name: Checking out own repository
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Compiling ${{ github.event.repository.name }} files
+        working-directory: src
+        run: |
+          cd source
+          mkdir build
+          cd build
+          python ../configure.py --enable-optimize --sdks l4d2,l4d,css,csgo,tf2,gmod --sm-path="${{ github.workspace }}/sourcemod-${{ matrix.sm_version }}" --mms-path="${{ github.workspace }}/metamod-${{ matrix.mm_version }}"
+          ambuild
+
+      - name: Uploading package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-l4d2-${{ matrix.os_short }}-${{ env.GITHUB_SHA_SHORT }}
+          path: src/source/build/package
