@@ -35,92 +35,94 @@
 #include <unordered_map>
 #include <stdexcept>
 
-class Precise_timer
+class PreciseTimer
 {
 public:
-	void start();
-	float get_interval() const;
+	void Start() noexcept;
+	float GetInterval() const noexcept;
 private:
-	std::chrono::high_resolution_clock::time_point start_time_point;
+	std::chrono::high_resolution_clock::time_point startTimePoint;
 };
 
 // Global singleton for extension's main interface.
-Precise_time g_precise_time;
-SMEXT_LINK(&g_precise_time);
+PreciseTime g_PreciseTime;
+SMEXT_LINK(&g_PreciseTime);
 
 // Used by global timer.
-std::chrono::high_resolution_clock::time_point g_start_time_point;
+std::chrono::high_resolution_clock::time_point g_StartTimePoint;
 
 // User created timers.
-std::unordered_map<int, Precise_timer> g_timers;
+std::unordered_map<int, PreciseTimer> g_Timers;
 
 // Unique serial ID for created timers.
-int generate_serial()
+int GenerateSerial() noexcept
 {
 	static int serial = 0;
 	return ++serial;
 }
 
 // native void StartGlobalPreciseTimer()
-cell_t native_StartGlobalPreciseTimer(IPluginContext *pContext, const cell_t *params)
+cell_t Native_StartGlobalPreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
 {
-	g_start_time_point = std::chrono::high_resolution_clock::now();
+	g_StartTimePoint = std::chrono::high_resolution_clock::now();
 	return 1;
 }
 
 // native float GetGlobalPreciseTimeInterval()
-cell_t native_GetGlobalPreciseTimeInterval(IPluginContext *pContext, const cell_t *params)
+cell_t Native_GetGlobalPreciseTimeInterval(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const auto now = std::chrono::high_resolution_clock::now();
-	return sp_ftoc(std::chrono::duration<float, std::chrono::milliseconds::period>(now - g_start_time_point).count());
+	return sp_ftoc(std::chrono::duration<float, std::chrono::milliseconds::period>(now - g_StartTimePoint).count());
 }
 
 // native int CreatePreciseTimer()
-cell_t native_CreatePreciseTimer(IPluginContext *pContext, const cell_t *params)
+cell_t Native_CreatePreciseTimer(IPluginContext *pContext, const cell_t *params)
 {
-	const int serial = generate_serial();
-	g_timers.insert({ serial, Precise_timer() });
+	const int serial = GenerateSerial();
+	g_Timers.insert({ serial, PreciseTimer() });
 	return serial;
 }
 
 // native void DeletePreciseTimer(int serial)
-cell_t native_DeletePreciseTimer(IPluginContext *pContext, const cell_t *params)
+cell_t Native_DeletePreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const int serial = params[1];
-	g_timers.erase(serial);
+	g_Timers.erase(serial);
 	return 1;
 }
 
 // native void StartPreciseTimer(int serial)
-cell_t native_StartPreciseTimer(IPluginContext *pContext, const cell_t *params)
+cell_t Native_StartPreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const int serial = params[1];
 
 	try {
-		g_timers.at(serial).start();
+		g_Timers.at(serial).Start();
 	}
 	catch (std::out_of_range) {
-		return pContext->ThrowNativeError("Bad serial");
+		pContext->ReportError("Bad serial");
+		return 0;
 	}
 
 	return 1;
 }
 
 // native float GetPreciseTimeInterval(int serial)
-cell_t native_GetPreciseTimeInterval(IPluginContext *pContext, const cell_t *params)
+cell_t Native_GetPreciseTimeInterval(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const int serial = params[1];
 
 	try {
-		return sp_ftoc(g_timers.at(serial).get_interval());
+		return sp_ftoc(g_Timers.at(serial).GetInterval());
 	}
 	catch (std::out_of_range) {
-		return pContext->ThrowNativeError("Bad serial");
+		pContext->ReportError("Bad serial");
+		return 0;
 	}
 }
 
 // native void ThreadSleep(int ms)
-cell_t native_ThreadSleep(IPluginContext *pContext, const cell_t *params)
+cell_t Native_ThreadSleep(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const int ms = params[1];
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
@@ -128,7 +130,7 @@ cell_t native_ThreadSleep(IPluginContext *pContext, const cell_t *params)
 }
 
 // native void PreciseThreadSleep(float ms, int accounted_error = 2)
-cell_t native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params)
+cell_t Native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params) noexcept
 {
 	const float ms = sp_ctof(params[1]);
 	const int accounted_error = params[2];
@@ -139,31 +141,31 @@ cell_t native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params)
 	return 1;
 }
 
-void Precise_timer::start()
+void PreciseTimer::Start() noexcept
 {
-	start_time_point = std::chrono::high_resolution_clock::now();
+	startTimePoint = std::chrono::high_resolution_clock::now();
 }
 
-float Precise_timer::get_interval() const
+float PreciseTimer::GetInterval() const noexcept
 {
 	const auto now = std::chrono::high_resolution_clock::now();
-	return std::chrono::duration<float, std::chrono::milliseconds::period>(now - start_time_point).count();
+	return std::chrono::duration<float, std::chrono::milliseconds::period>(now - startTimePoint).count();
 }
 
 // Bind natives.
-sp_nativeinfo_t g_natives[] = {
-	{ "StartGlobalPreciseTimer", native_StartGlobalPreciseTimer },
-	{ "GetGlobalPreciseTimeInterval", native_GetGlobalPreciseTimeInterval },
-	{ "CreatePreciseTimer", native_CreatePreciseTimer },
-	{ "DeletePreciseTimer", native_DeletePreciseTimer },
-	{ "StartPreciseTimer", native_StartPreciseTimer },
-	{ "GetPreciseTimeInterval", native_GetPreciseTimeInterval },
-	{ "ThreadSleep", native_ThreadSleep },
-	{ "PreciseThreadSleep", native_PreciseThreadSleep },
+sp_nativeinfo_t g_Natives[] = {
+	{ "StartGlobalPreciseTimer", Native_StartGlobalPreciseTimer },
+	{ "GetGlobalPreciseTimeInterval", Native_GetGlobalPreciseTimeInterval },
+	{ "CreatePreciseTimer", Native_CreatePreciseTimer },
+	{ "DeletePreciseTimer", Native_DeletePreciseTimer },
+	{ "StartPreciseTimer", Native_StartPreciseTimer },
+	{ "GetPreciseTimeInterval", Native_GetPreciseTimeInterval },
+	{ "ThreadSleep", Native_ThreadSleep },
+	{ "PreciseThreadSleep", Native_PreciseThreadSleep },
 	{ NULL, NULL }
 };
 
-void Precise_time::SDK_OnAllLoaded()
+void PreciseTime::SDK_OnAllLoaded()
 {
-	sharesys->AddNatives(myself, g_natives);
+	sharesys->AddNatives(myself, g_Natives);
 }

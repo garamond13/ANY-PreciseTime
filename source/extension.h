@@ -34,7 +34,7 @@
 
 #include "smsdk_ext.h"
 
-class Precise_time : public SDKExtension
+class PreciseTime : public SDKExtension
 {
 public:
 	/**
