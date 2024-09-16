@@ -47,6 +47,15 @@ native void StartPreciseTimer(int serial);
 native float GetPreciseTimeInterval(int serial);
 
 /**
+ *  Check is PreciseTimer serial valid.
+ *
+ * @param serial	PreciseTimer serial.
+ * 
+ * @return True if valid, false if invalid.
+ */
+native bool IsValidPreciseTimer(int serial);
+
+/**
  * Sleeps this thread.
  *
  * @param ms    Sleep for this many milliseconds.

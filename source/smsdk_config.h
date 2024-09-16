@@ -40,7 +40,7 @@
 /* Basic information exposed publicly */
 #define SMEXT_CONF_NAME			"PreciseTime"
 #define SMEXT_CONF_DESCRIPTION	"Precise timers and thread sleep"
-#define SMEXT_CONF_VERSION		"1.0.1.0"
+#define SMEXT_CONF_VERSION		"2.0.0.0"
 #define SMEXT_CONF_AUTHOR		"Garamond"
 #define SMEXT_CONF_URL			"https://github.com/garamond13/ANY-PreciseTime"
 #define SMEXT_CONF_LOGTAG		"PRECISE_TIME"

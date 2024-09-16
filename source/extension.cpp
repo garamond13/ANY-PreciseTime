@@ -33,13 +33,12 @@
 #include <chrono>
 #include <thread>
 #include <unordered_map>
-#include <stdexcept>
 
 class PreciseTimer
 {
 public:
-	void Start() noexcept;
-	float GetInterval() const noexcept;
+	void Start();
+	float GetInterval() const;
 private:
 	std::chrono::high_resolution_clock::time_point startTimePoint;
 };
@@ -55,21 +54,21 @@ std::chrono::high_resolution_clock::time_point g_StartTimePoint;
 std::unordered_map<int, PreciseTimer> g_Timers;
 
 // Unique serial ID for created timers.
-int GenerateSerial() noexcept
+int GenerateSerial()
 {
 	static int serial = 0;
 	return ++serial;
 }
 
 // native void StartGlobalPreciseTimer()
-cell_t Native_StartGlobalPreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_StartGlobalPreciseTimer(IPluginContext *pContext, const cell_t *params)
 {
 	g_StartTimePoint = std::chrono::high_resolution_clock::now();
 	return 1;
 }
 
 // native float GetGlobalPreciseTimeInterval()
-cell_t Native_GetGlobalPreciseTimeInterval(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_GetGlobalPreciseTimeInterval(IPluginContext *pContext, const cell_t *params)
 {
 	const auto now = std::chrono::high_resolution_clock::now();
 	return sp_ftoc(std::chrono::duration<float, std::chrono::milliseconds::period>(now - g_StartTimePoint).count());
@@ -84,7 +83,7 @@ cell_t Native_CreatePreciseTimer(IPluginContext *pContext, const cell_t *params)
 }
 
 // native void DeletePreciseTimer(int serial)
-cell_t Native_DeletePreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_DeletePreciseTimer(IPluginContext *pContext, const cell_t *params)
 {
 	const int serial = params[1];
 	g_Timers.erase(serial);
@@ -92,37 +91,29 @@ cell_t Native_DeletePreciseTimer(IPluginContext *pContext, const cell_t *params)
 }
 
 // native void StartPreciseTimer(int serial)
-cell_t Native_StartPreciseTimer(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_StartPreciseTimer(IPluginContext *pContext, const cell_t *params)
 {
 	const int serial = params[1];
-
-	try {
-		g_Timers.at(serial).Start();
-	}
-	catch (std::out_of_range) {
-		pContext->ReportError("Bad serial");
-		return 0;
-	}
-
+	g_Timers.at(serial).Start();
 	return 1;
 }
 
 // native float GetPreciseTimeInterval(int serial)
-cell_t Native_GetPreciseTimeInterval(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_GetPreciseTimeInterval(IPluginContext *pContext, const cell_t *params)
 {
 	const int serial = params[1];
+	return sp_ftoc(g_Timers.at(serial).GetInterval());
+}
 
-	try {
-		return sp_ftoc(g_Timers.at(serial).GetInterval());
-	}
-	catch (std::out_of_range) {
-		pContext->ReportError("Bad serial");
-		return 0;
-	}
+// native bool IsValidPreciseTimer(int serial)
+cell_t Native_IsValidPreciseTimer(IPluginContext *pContext, const cell_t *params)
+{
+	const int serial = params[1];
+	return g_Timers.contains(serial);
 }
 
 // native void ThreadSleep(int ms)
-cell_t Native_ThreadSleep(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_ThreadSleep(IPluginContext *pContext, const cell_t *params)
 {
 	const int ms = params[1];
 	std::this_thread::sleep_for(std::chrono::milliseconds(ms));
@@ -130,7 +121,7 @@ cell_t Native_ThreadSleep(IPluginContext *pContext, const cell_t *params) noexce
 }
 
 // native void PreciseThreadSleep(float ms, int accounted_error = 2)
-cell_t Native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params) noexcept
+cell_t Native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params)
 {
 	const float ms = sp_ctof(params[1]);
 	const int accounted_error = params[2];
@@ -141,12 +132,12 @@ cell_t Native_PreciseThreadSleep(IPluginContext *pContext, const cell_t *params)
 	return 1;
 }
 
-void PreciseTimer::Start() noexcept
+void PreciseTimer::Start()
 {
 	startTimePoint = std::chrono::high_resolution_clock::now();
 }
 
-float PreciseTimer::GetInterval() const noexcept
+float PreciseTimer::GetInterval() const
 {
 	const auto now = std::chrono::high_resolution_clock::now();
 	return std::chrono::duration<float, std::chrono::milliseconds::period>(now - startTimePoint).count();
@@ -160,6 +151,7 @@ sp_nativeinfo_t g_Natives[] = {
 	{ "DeletePreciseTimer", Native_DeletePreciseTimer },
 	{ "StartPreciseTimer", Native_StartPreciseTimer },
 	{ "GetPreciseTimeInterval", Native_GetPreciseTimeInterval },
+	{ "IsValidPreciseTimer", Native_IsValidPreciseTimer },
 	{ "ThreadSleep", Native_ThreadSleep },
 	{ "PreciseThreadSleep", Native_PreciseThreadSleep },
 	{ NULL, NULL }
